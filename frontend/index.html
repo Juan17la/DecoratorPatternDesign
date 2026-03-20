@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naruto Tower Defense</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <!-- Clan Selection Screen (shown on first load) -->
+    <div id="clan-selection-screen">
+        <div id="clan-selection-inner">
+            <div id="shinigami-intro">
+                <h1>Choose Your Clan, Ninja</h1>
+                <p>The Shinigami watches. Your bloodline determines your destiny.</p>
+            </div>
+            <div id="clan-cards-grid"></div>
+        </div>
+    </div>
+
+    <!-- Main Game (hidden until clan is chosen) -->
+    <div id="game-wrapper" class="hidden">
+        <header>
+            <h1>Naruto Tower Defense</h1>
+            <div id="hud">
+                <span>Lives: <strong id="lives">--</strong></span>
+                <span>Coins: <strong id="coins">--</strong></span>
+                <span>Clan: <strong id="clan">--</strong></span>
+                <span>Rank: <strong id="rank">--</strong></span>
+            </div>
+        </header>
+
+        <main>
+            <section id="mission-panel">
+                <h2>Missions</h2>
+                <div id="mission-list"></div>
+            </section>
+
+            <section id="game-panel">
+                <div id="wave-info">Wave <span id="wave-current">0</span> / <span id="wave-total">0</span></div>
+                <canvas id="game-canvas" width="600" height="300"></canvas>
+                <div id="controls">
+                    <button id="btn-next-wave">Next Wave</button>
+                </div>
+
+                <div id="tower-panel">
+                    <h3>Towers <span id="tower-count">(0/4)</span></h3>
+                    <div id="place-tower">
+                        <select id="clan-select">
+                            <option value="UZUMAKI">Uzumaki</option>
+                            <option value="UCHIHA">Uchiha</option>
+                            <option value="HYUGA">Hyuga</option>
+                            <option value="NARA">Nara</option>
+                            <option value="INUZUKA">Inuzuka</option>
+                            <option value="INOICHI">Inoichi (Yamanaka)</option>
+                        </select>
+                        <button id="btn-place-tower">Place Tower</button>
+                    </div>
+                    <div id="tower-list"></div>
+                </div>
+            </section>
+
+            <section id="reward-panel" class="hidden">
+                <h2>Choose a Reward</h2>
+                <div id="reward-cards"></div>
+            </section>
+
+            <section id="jutsu-panel">
+                <h2>Jutsu Inventory</h2>
+                <div id="jutsu-list"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="game.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>

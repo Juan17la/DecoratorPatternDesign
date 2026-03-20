@@ -2,59 +2,167 @@
 
 const Renderer = (() => {
 
+    // ── HUD ──────────────────────────────────────────────────────────────────
+
     function renderHud(state) {
-        const p = state.player || state;
-        document.getElementById('lives').textContent = p.lives ?? state.lives ?? '--';
-        document.getElementById('coins').textContent = p.coins ?? state.coins ?? '--';
-        document.getElementById('clan').textContent  = p.clan  ?? state.playerClan ?? '--';
-        document.getElementById('rank').textContent  = p.rank  ?? state.playerRank ?? '--';
+        const lives = state.lives  ?? '--';
+        const coins = state.coins  ?? '--';
+        const clan  = state.playerClan ?? state.clan  ?? '--';
+        const rank  = state.playerRank ?? state.rank  ?? '--';
+        document.getElementById('lives').textContent = lives;
+        document.getElementById('coins').textContent = coins;
+        document.getElementById('clan').textContent  = clan;
+        document.getElementById('rank').textContent  = rank;
     }
+
+    // ── Tower panel ───────────────────────────────────────────────────────────
 
     function renderTowers(towers) {
         const container = document.getElementById('tower-list');
-        if (!towers.length) { container.innerHTML = '<p style="opacity:.5">No towers placed.</p>'; return; }
-        container.innerHTML = towers.map((t, i) => `
+        if (!towers.length) {
+            container.innerHTML = '<p style="opacity:.5">No towers placed.</p>';
+            return;
+        }
+        container.innerHTML = towers.map((t, i) => {
+            const slot         = t.slot ?? i;
+            const chakraBar    = renderChakraBar(t.chakra ?? 0, t.maxChakra ?? 100);
+            const moduleList   = (t.appliedModules || []).join(', ') || 'None';
+            const currentMode  = t.targetingMode || 'FIRST';
+
+            return `
             <div class="tower-card">
-                <strong>Slot ${i}</strong> — ${t.description || 'Tower'}<br/>
-                DMG: ${t.damage ?? '--'} | SPD: ${(t.attackSpeed ?? 0).toFixed(2)} | RNG: ${t.range ?? '--'}<br/>
-                Chakra: ${t.chakra ?? 0}/${t.maxChakra ?? 0}<br/>
-                <span class="modules">${(t.appliedModules || []).join(', ') || 'No modules'}</span><br/>
-                <button onclick="upgradePrompt(${i})">+ Module</button>
-            </div>
-        `).join('');
+                <strong>Slot ${slot}</strong> — ${t.description || 'Tower'}<br/>
+                DMG: ${t.damage ?? '--'} &nbsp;|&nbsp;
+                SPD: ${(t.attackSpeed ?? 0).toFixed(2)} APS &nbsp;|&nbsp;
+                RNG: ${t.range ?? '--'} &nbsp;|&nbsp;
+                Targets: ${t.targetCount ?? 1}
+                <br/>
+                Chakra: ${chakraBar}
+                <br/>
+                <span class="modules">Modules: ${moduleList}</span>
+                <br/>
+                <label style="font-size:.75rem">Target:
+                    <select class="targeting-select" data-slot="${slot}"
+                            style="font-size:.75rem;padding:2px 4px;margin-left:4px">
+                        ${['FIRST','STRONGEST','FASTEST','CLUSTERED'].map(m =>
+                            `<option value="${m}"${m === currentMode ? ' selected' : ''}>${m}</option>`
+                        ).join('')}
+                    </select>
+                </label>
+                &nbsp;
+                <button onclick="upgradePrompt(${slot})" style="padding:3px 8px;font-size:.75rem">+ Module</button>
+            </div>`;
+        }).join('');
+
+        // Wire targeting selects
+        container.querySelectorAll('.targeting-select').forEach(sel => {
+            sel.addEventListener('change', async () => {
+                const data = await API.setTargeting(parseInt(sel.dataset.slot), sel.value);
+                if (data.error) alert(data.error);
+            });
+        });
+    }
+
+    function renderChakraBar(current, max) {
+        const pct   = max > 0 ? Math.round((current / max) * 100) : 0;
+        const color = pct > 50 ? '#4caf50' : pct > 20 ? '#f5a623' : '#e94560';
+        return `<span title="${current}/${max} chakra"
+            style="display:inline-block;width:80px;height:8px;
+                   background:#333;border-radius:4px;vertical-align:middle">
+            <span style="display:block;width:${pct}%;height:100%;
+                         background:${color};border-radius:4px"></span>
+        </span> ${current}/${max}`;
+    }
+
+    // ── Canvas / Enemy rendering ───────────────────────────────────────────────
+
+    function clearCanvas() {
+        const canvas = document.getElementById('game-canvas');
+        const ctx    = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawPath(ctx, canvas);
+    }
+
+    function drawPath(ctx, canvas) {
+        const mid = canvas.height / 2;
+        // Background track
+        ctx.fillStyle = '#1a3a1a';
+        ctx.fillRect(0, mid - 15, canvas.width, 30);
+        // Centre line
+        ctx.strokeStyle = '#f5a623';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(0, mid);
+        ctx.lineTo(canvas.width, mid);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Start / End markers
+        ctx.fillStyle = '#4caf50';
+        ctx.fillRect(0, mid - 15, 6, 30);
+        ctx.fillStyle = '#e94560';
+        ctx.fillRect(canvas.width - 6, mid - 15, 6, 30);
     }
 
     function renderEnemies(enemies) {
         const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx    = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawPath(ctx, canvas);
 
-        // draw path
-        ctx.strokeStyle = '#f5a623';
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height / 2);
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
+        const mid = canvas.height / 2;
 
-        // draw enemies
         enemies.forEach(e => {
-            const x = e.pathProgress * canvas.width;
-            const y = canvas.height / 2;
-            const ratio = e.currentHp / e.maxHp;
+            if (!e || (e.currentHp !== undefined && e.currentHp <= 0)) return;
+            const x     = (e.pathProgress ?? 0) * canvas.width;
+            const hp    = e.currentHp ?? e.maxHp ?? 1;
+            const maxHp = e.maxHp ?? 1;
+            const ratio = hp / maxHp;
 
-            ctx.fillStyle = ratio > 0.5 ? '#e94560' : '#f5a623';
+            // Enemy body (circle — radius scales with HP ratio)
+            const radius = 10 + (1 - ratio) * 2;
             ctx.beginPath();
-            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.arc(x, mid, radius, 0, Math.PI * 2);
+            ctx.fillStyle = enemyColor(e, ratio);
             ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
 
-            // HP bar
-            ctx.fillStyle = '#333';
-            ctx.fillRect(x - 12, y - 20, 24, 4);
-            ctx.fillStyle = '#4caf50';
-            ctx.fillRect(x - 12, y - 20, 24 * ratio, 4);
+            // HP bar (above the circle)
+            const barW  = 28;
+            const barH  = 4;
+            const barX  = x - barW / 2;
+            const barY  = mid - radius - 8;
+            ctx.fillStyle = '#222';
+            ctx.fillRect(barX, barY, barW, barH);
+            ctx.fillStyle = ratio > 0.5 ? '#4caf50' : ratio > 0.2 ? '#f5a623' : '#e94560';
+            ctx.fillRect(barX, barY, barW * ratio, barH);
+
+            // Status effect indicator
+            const effects = e.activeEffects || [];
+            if (effects.length) {
+                ctx.font = '9px sans-serif';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(effectIcon(effects[0]), x - 4, mid - radius - 10);
+            }
         });
     }
+
+    function enemyColor(e, ratio) {
+        const rank = (e.rank || '').toString();
+        if (rank === 'KAGE')   return `rgba(220,20,60,${0.7 + ratio * 0.3})`;
+        if (rank === 'JONIN')  return `rgba(200,100,0,${0.7 + ratio * 0.3})`;
+        if (rank === 'CHUNIN') return `rgba(180,160,0,${0.7 + ratio * 0.3})`;
+        return `rgba(100,180,${Math.round(ratio * 200)},${0.7 + ratio * 0.3})`;
+    }
+
+    function effectIcon(effect) {
+        const icons = { FREEZE:'❄', SLOW:'🐢', STUN:'⚡', BURN:'🔥', CONFUSION:'?' };
+        return icons[effect] || '·';
+    }
+
+    // ── Mission panel ─────────────────────────────────────────────────────────
 
     const SPECIAL_TYPES = new Set(['CHUNIN_EXAM_1','CHUNIN_EXAM_2','CHUNIN_EXAM_3','JONIN_PROMOTION']);
 
@@ -84,13 +192,18 @@ const Renderer = (() => {
         });
     }
 
+    // ── Jutsu panel ───────────────────────────────────────────────────────────
+
     function renderJutsu(inventory) {
         const container = document.getElementById('jutsu-list');
-        const names = Object.keys(inventory.copies || {});
-        if (!names.length) { container.innerHTML = '<p style="opacity:.5">No jutsus.</p>'; return; }
+        const names     = Object.keys(inventory.copies || {});
+        if (!names.length) {
+            container.innerHTML = '<p style="opacity:.5">No jutsus.</p>';
+            return;
+        }
         container.innerHTML = names.map(name => {
-            const copies = inventory.copies[name] || 0;
-            const level  = inventory.levels[name]  || 1;
+            const copies = (inventory.copies || {})[name] || 0;
+            const level  = (inventory.levels || {})[name]  || 1;
             return `
                 <div class="jutsu-card">
                     <strong>${name}</strong> Lv.${level}<br/>
@@ -104,8 +217,10 @@ const Renderer = (() => {
         });
     }
 
+    // ── Reward panel ──────────────────────────────────────────────────────────
+
     function renderRewardPanel(cards) {
-        const panel = document.getElementById('reward-panel');
+        const panel     = document.getElementById('reward-panel');
         const container = document.getElementById('reward-cards');
         panel.classList.remove('hidden');
         container.innerHTML = cards.map(c => `
@@ -120,11 +235,26 @@ const Renderer = (() => {
         });
     }
 
-    return { renderHud, renderTowers, renderEnemies, renderMissions, renderJutsu, renderRewardPanel };
+    return {
+        renderHud,
+        renderTowers,
+        renderEnemies,
+        clearCanvas,
+        renderMissions,
+        renderJutsu,
+        renderRewardPanel
+    };
 })();
 
+// ── Global helpers (called from inline onclick / game.js) ────────────────
+
 async function upgradePrompt(slot) {
-    const module = prompt('Enter module name (RapidFire / Freeze / FireStyle):');
+    const module = prompt(
+        'Enter module name:\n' +
+        'RapidFire | Shuriken | PiercingKunai | ExplosiveKunai\n' +
+        'FireStyle | LightningStyle | WaterStyle | WindStyle | EarthStyle\n' +
+        'Freeze | ChakraRegen | GoldGenerator | ClanAbility | ChakraArmor'
+    );
     if (!module) return;
     const data = await API.upgradeTower(slot, module);
     if (handleError(data)) return;

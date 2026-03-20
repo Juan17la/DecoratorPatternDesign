@@ -22,8 +22,9 @@ public class Enemy {
     private Set<EnemyBehavior> behaviors;
 
     // Behavior state
-    private boolean shieldActive;   // S_RANK_SHIELD / AOE_IMMUNE: absorbs one hit
-    private boolean invisible;      // currently invisible (untargetable)
+    private boolean shieldActive;     // S_RANK_SHIELD / AOE_IMMUNE: absorbs one hit
+    private boolean invisible;        // currently invisible (untargetable)
+    private boolean coinsCollected;   // ensure coin reward is only counted once
 
     public Enemy(String id, String name, int maxHp, float speed,
                  EnemyRank rank, int coinReward) {
@@ -110,4 +111,14 @@ public class Enemy {
     public boolean             isInvisible()      { return invisible; }
 
     public void setInvisible(boolean invisible)   { this.invisible = invisible; }
+
+    /**
+     * Returns the coin reward and marks it as collected so it is only counted once.
+     * Returns 0 on subsequent calls or if the enemy has no reward.
+     */
+    public int collectCoinReward() {
+        if (coinsCollected || coinReward <= 0) return 0;
+        coinsCollected = true;
+        return coinReward;
+    }
 }

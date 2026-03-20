@@ -1,6 +1,7 @@
 package com.naruto.tower;
 
 import com.naruto.enemy.Enemy;
+import com.naruto.game.TargetingMode;
 
 import java.util.List;
 
@@ -21,4 +22,9 @@ public interface Tower {
     default float getCritChance()      { return 0f; }
     default float getSlowOnHitChance() { return 0f; }
     default float getConfuseChance()   { return 0f; }
+
+    // Targeting and chakra management (implemented by BaseTower, delegated by decorators)
+    default TargetingMode getTargetingMode()            { return TargetingMode.FIRST; }
+    default void setTargetingMode(TargetingMode mode)   { /* override in BaseTower */ }
+    default void setChakra(int chakra)                  { /* override in BaseTower */ }
 }

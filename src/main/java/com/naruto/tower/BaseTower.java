@@ -3,6 +3,7 @@ package com.naruto.tower;
 import com.naruto.enemy.Enemy;
 import com.naruto.enemy.StatusEffect;
 import com.naruto.game.ClanType;
+import com.naruto.game.TargetingMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,16 +15,16 @@ public class BaseTower implements Tower {
     private static final int   BASE_RANGE        = 3;
     private static final float BASE_ATTACK_SPEED = 0.5f;  // 1 attack / 2 sec
     private static final int   BASE_MAX_CHAKRA   = 100;
-    private static final int   CHAKRA_PER_ATTACK = 5;
 
     private static final Random RANDOM = new Random();
 
     private final ClanType clan;
     private int chakra;
+    private TargetingMode targetingMode = TargetingMode.FIRST;
 
     public BaseTower(ClanType clan) {
-        this.clan = clan;
-        this.chakra = 0;
+        this.clan   = clan;
+        this.chakra = getMaxChakra();   // start each wave with a full chakra pool
     }
 
     @Override
@@ -78,6 +79,17 @@ public class BaseTower implements Tower {
     }
 
     @Override
+    public TargetingMode getTargetingMode() { return targetingMode; }
+
+    @Override
+    public void setTargetingMode(TargetingMode mode) { this.targetingMode = mode; }
+
+    @Override
+    public void setChakra(int value) {
+        this.chakra = Math.max(0, Math.min(getMaxChakra(), value));
+    }
+
+    @Override
     public void attack(Enemy target) {
         int damage = getDamage();
 
@@ -87,7 +99,6 @@ public class BaseTower implements Tower {
         }
 
         target.takeDamage(damage);
-        chakra = Math.min(getMaxChakra(), chakra + CHAKRA_PER_ATTACK);
 
         // Nara passive: shadow binding — chance to slow on hit
         if (clan == ClanType.NARA && RANDOM.nextFloat() < getSlowOnHitChance()) {

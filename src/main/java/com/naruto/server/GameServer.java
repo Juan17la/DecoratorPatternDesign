@@ -53,6 +53,8 @@ public class GameServer {
         server.createContext("/rewards",         new RewardsHandler(rewardPool));
         server.createContext("/reward/collect",  new CollectRewardHandler(rewardPool));
         server.createContext("/jutsu/merge",     new JutsuMergeHandler());
+        server.createContext("/wave/tick",       new WaveTickHandler(missionManager));
+        server.createContext("/tower/targeting", new SetTargetingHandler());
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();

@@ -15,20 +15,75 @@ function handleError(data, msg) {
 }
 
 const API = {
-    getState()               { return apiCall('/state'); },
-    getClans()               { return apiCall('/clans'); },
-    getMissions()            { return apiCall('/missions'); },
-    getRewards()             { return apiCall('/rewards'); },
-    setPlayerClan(clan)      { return apiCall('/player/clan',   { clan }); },
-    placeTower(clan)         { return apiCall('/tower/place',   { clan }); },
-    upgradeTower(slot, module){ return apiCall('/tower/upgrade', { slot, module }); },
-    startMission(missionId)  { return apiCall('/mission/start', { missionId }); },
-    nextWave()               { return apiCall('/wave/next', {}); },
-    collectReward(cardId)    { return apiCall('/reward/collect', { cardId }); },
-    mergeJutsu(jutsuName)    { return apiCall('/jutsu/merge',    { jutsuName }); },
+    getState()                 { return apiCall('/state'); },
+    getClans()                 { return apiCall('/clans'); },
+    getMissions()              { return apiCall('/missions'); },
+    getRewards()               { return apiCall('/rewards'); },
+    setPlayerClan(clan)        { return apiCall('/player/clan',    { clan }); },
+    placeTower(clan)           { return apiCall('/tower/place',    { clan }); },
+    upgradeTower(slot, module) { return apiCall('/tower/upgrade',  { slot, module }); },
+    setTargeting(slot, mode)   { return apiCall('/tower/targeting',{ slot, mode }); },
+    startMission(missionId)    { return apiCall('/mission/start',  { missionId }); },
+    nextWave()                 { return apiCall('/wave/next', {}); },
+    tickWave()                 { return apiCall('/wave/tick', {}); },
+    collectReward(cardId)      { return apiCall('/reward/collect', { cardId }); },
+    mergeJutsu(jutsuName)      { return apiCall('/jutsu/merge',    { jutsuName }); },
 };
 
-// --- UI wiring ---
+// ── Combat loop ────────────────────────────────────────────────────────────
+
+let combatInterval = null;
+
+function startCombatLoop() {
+    if (combatInterval) return;
+    document.getElementById('btn-next-wave').disabled = true;
+
+    combatInterval = setInterval(async () => {
+        let result;
+        try { result = await API.tickWave(); }
+        catch { return; }   // network hiccup — try again next tick
+
+        if (result.error) {
+            stopCombatLoop();
+            return;
+        }
+
+        // Animate enemies on canvas
+        Renderer.renderEnemies(result.enemies || []);
+
+        // Update HUD
+        document.getElementById('lives').textContent = result.lives ?? '--';
+        document.getElementById('coins').textContent = result.coins ?? '--';
+
+        if (result.waveComplete) {
+            stopCombatLoop();
+
+            if (!result.missionComplete && result.wave < result.totalWaves) {
+                // Between waves: re-enable the Next Wave button
+                document.getElementById('wave-current').textContent = result.wave;
+                document.getElementById('btn-next-wave').disabled = false;
+                await refreshState();   // update tower chakra display
+            } else {
+                // Mission over (all waves done or lives = 0)
+                document.getElementById('wave-current').textContent = result.wave;
+                await refreshState();
+            }
+
+            // Always offer a reward draw after a completed wave
+            const cards = await API.getRewards();
+            if (cards && cards.length) Renderer.renderRewardPanel(cards);
+        }
+    }, 100);   // 10 ticks per second
+}
+
+function stopCombatLoop() {
+    if (combatInterval) {
+        clearInterval(combatInterval);
+        combatInterval = null;
+    }
+}
+
+// ── UI wiring ─────────────────────────────────────────────────────────────
 
 async function refreshState() {
     const state = await API.getState();
@@ -50,21 +105,16 @@ document.getElementById('btn-next-wave').addEventListener('click', async () => {
     const data = await API.nextWave();
     if (handleError(data)) return;
     document.getElementById('wave-current').textContent = data.wave;
-    Renderer.renderEnemies(data.enemies || []);
-
-    // Show rewards after wave ends (simulated: after 5 s)
-    setTimeout(async () => {
-        const cards = await API.getRewards();
-        Renderer.renderRewardPanel(cards);
-    }, 5000);
+    document.getElementById('wave-total').textContent   = data.totalWaves || data.wave;
+    startCombatLoop();
 });
 
-// --- Clan selection screen ---
+// ── Clan selection screen ─────────────────────────────────────────────────
 
 async function initClanSelection() {
     const clanData = await API.getClans();
     const clans = clanData.clans || [];
-    const grid = document.getElementById('clan-cards-grid');
+    const grid  = document.getElementById('clan-cards-grid');
     grid.innerHTML = '';
 
     clans.forEach(clan => {
@@ -107,7 +157,7 @@ function formatClanName(clanKey) {
     return names[clanKey] || clanKey;
 }
 
-// --- Game init (called after clan selection) ---
+// ── Game init (called after clan selection) ───────────────────────────────
 
 async function startGame() {
     await loadMissions();
@@ -117,10 +167,15 @@ async function startGame() {
 async function loadMissions() {
     const missions = await API.getMissions();
     Renderer.renderMissions(missions, async (id, totalWaves) => {
+        stopCombatLoop();
         const data = await API.startMission(id);
         if (handleError(data)) return;
-        document.getElementById('wave-total').textContent = data.totalWaves || totalWaves;
+        document.getElementById('wave-total').textContent   = data.totalWaves || totalWaves;
         document.getElementById('wave-current').textContent = '0';
+        document.getElementById('btn-next-wave').disabled   = false;
+        // Clear the canvas for the new mission
+        Renderer.clearCanvas();
+        document.getElementById('reward-panel').classList.add('hidden');
         await refreshState();
     });
 }

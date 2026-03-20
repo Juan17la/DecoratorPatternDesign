@@ -1,6 +1,7 @@
 package com.naruto.tower;
 
 import com.naruto.enemy.Enemy;
+import com.naruto.game.TargetingMode;
 
 import java.util.List;
 
@@ -27,4 +28,9 @@ public abstract class TowerDecorator implements Tower {
     @Override public float getCritChance()      { return wrappedTower.getCritChance(); }
     @Override public float getSlowOnHitChance() { return wrappedTower.getSlowOnHitChance(); }
     @Override public float getConfuseChance()   { return wrappedTower.getConfuseChance(); }
+
+    // Delegate targeting-mode and chakra management to the inner BaseTower
+    @Override public TargetingMode getTargetingMode()          { return wrappedTower.getTargetingMode(); }
+    @Override public void setTargetingMode(TargetingMode mode) { wrappedTower.setTargetingMode(mode); }
+    @Override public void setChakra(int chakra)                { wrappedTower.setChakra(chakra); }
 }

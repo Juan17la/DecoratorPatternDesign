@@ -22,6 +22,11 @@ public class GameStateManager {
     private int lives;
     private int coins;
 
+    // Global weapon / chakra upgrade levels (apply to all towers)
+    private int kunaiLevel    = 0;   // +8 dmg, +0.5 range per level
+    private int shurikenLevel = 0;   // +6 dmg per level, +1 target per 3 levels
+    private int chakraBonus   = 0;   // flat bonus added to every tower's maxChakra
+
     private GameStateManager() {
         playerClan = ClanType.UCHIHA;
         playerRank = NinjaRank.GENIN;
@@ -80,4 +85,14 @@ public class GameStateManager {
         activeTowers.add(tower);
     }
     public boolean isGameOver() { return lives <= 0; }
+
+    // ── Upgrade accessors ───────────────────────────────────────────────────
+
+    public int  getKunaiLevel()    { return kunaiLevel; }
+    public int  getShurikenLevel() { return shurikenLevel; }
+    public int  getChakraBonus()   { return chakraBonus; }
+
+    public void incrementKunaiLevel()    { kunaiLevel++; }
+    public void incrementShurikenLevel() { shurikenLevel++; }
+    public void addChakraBonus(int amount) { chakraBonus += amount; }
 }

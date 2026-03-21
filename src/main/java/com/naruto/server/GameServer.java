@@ -44,13 +44,13 @@ public class GameServer {
 
         server.createContext("/clans",           new ClanInfoHandler());
         server.createContext("/player/clan",    new SetPlayerClanHandler());
-        server.createContext("/state",          new StateHandler());
+        server.createContext("/state",          new StateHandler(missionManager));
         server.createContext("/tower/place",     new PlaceTowerHandler());
         server.createContext("/tower/upgrade",   new UpgradeTowerHandler());
         server.createContext("/missions",         new MissionsHandler(missionManager));
         server.createContext("/mission/start",   new MissionStartHandler(missionManager));
         server.createContext("/wave/next",       new NextWaveHandler(missionManager));
-        server.createContext("/rewards",         new RewardsHandler(rewardPool));
+        server.createContext("/rewards",         new RewardsHandler(rewardPool, missionManager));
         server.createContext("/reward/collect",  new CollectRewardHandler(rewardPool));
         server.createContext("/jutsu/merge",     new JutsuMergeHandler());
         server.createContext("/wave/tick",       new WaveTickHandler(missionManager));

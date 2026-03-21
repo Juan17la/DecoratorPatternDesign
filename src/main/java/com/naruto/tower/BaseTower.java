@@ -3,6 +3,7 @@ package com.naruto.tower;
 import com.naruto.enemy.Enemy;
 import com.naruto.enemy.StatusEffect;
 import com.naruto.game.ClanType;
+import com.naruto.game.GameStateManager;
 import com.naruto.game.TargetingMode;
 
 import java.util.ArrayList;
@@ -28,7 +29,10 @@ public class BaseTower implements Tower {
     }
 
     @Override
-    public int getDamage() { return BASE_DAMAGE; }
+    public int getDamage() {
+        // Kunai upgrade: +8 damage per level (06_rewards_and_progression.md)
+        return BASE_DAMAGE + GameStateManager.getInstance().getKunaiLevel() * 8;
+    }
 
     @Override
     public float getAttackSpeed() {
@@ -37,15 +41,19 @@ public class BaseTower implements Tower {
     }
 
     @Override
-    public int getRange() { return BASE_RANGE; }
+    public int getRange() {
+        // Kunai upgrade: +0.5 range per level (stored as int; multiply by 10 to avoid float field)
+        return BASE_RANGE + (int)(GameStateManager.getInstance().getKunaiLevel() * 0.5f);
+    }
 
     @Override
     public int getChakra() { return chakra; }
 
     @Override
     public int getMaxChakra() {
-        // Uzumaki passive: +30% maximum chakra
-        return clan == ClanType.UZUMAKI ? (int)(BASE_MAX_CHAKRA * 1.3f) : BASE_MAX_CHAKRA;
+        // Uzumaki passive: +30% maximum chakra; plus global chakra upgrade bonus
+        int base = clan == ClanType.UZUMAKI ? (int)(BASE_MAX_CHAKRA * 1.3f) : BASE_MAX_CHAKRA;
+        return base + GameStateManager.getInstance().getChakraBonus();
     }
 
     @Override
@@ -109,6 +117,12 @@ public class BaseTower implements Tower {
         if (clan == ClanType.INOICHI && RANDOM.nextFloat() < getConfuseChance()) {
             target.applyEffect(StatusEffect.STUN, 800);
         }
+    }
+
+    @Override
+    public int getTargetCount() {
+        // Shuriken upgrade: +1 extra target per 3 upgrade levels (stacks with ShurikenModule)
+        return 1 + GameStateManager.getInstance().getShurikenLevel() / 3;
     }
 
     @Override
